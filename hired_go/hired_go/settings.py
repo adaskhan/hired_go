@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'jobs',
+    'rest_framework',
 ]
 
 MIDDLEWARE = [
@@ -120,3 +121,5 @@ STATICFILES_DIRS = [
 
 MEDIA_ROOT = os.path.join(BASE_DIR, 'jobs/media')
 MEDIA_URL = '/media/'
+
+LOGIN_REDIRECT_URL = '/'

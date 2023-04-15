@@ -19,19 +19,19 @@
         </tr>
     </thead>
     <tbody>
-        {% for job in jobs %}
+        {% for vacancy in vacancies %}
         <tr>
             <td>{{forloop.counter}}</td>
-            <td>{{job.company.company_name}}</td>
-            <td>{{job.title}}</td>
-            <td>{{job.salary}}</td>
-            <td>{{job.location}}</td>
-            <td>{{job.creation_date}}</td>
+            <td>{{vacancy.company_name.company_name}}</td>
+            <td><a href="/job_detail/{{ vacancy.id }}/">{{vacancy.title}}</a></td>
+            <td>{{vacancy.salary}}</td>
+            <td>{{vacancy.location}}</td>
+            <td>{{vacancy.creation_date}}</td>
 
-            {% if job.id in data %}
+            {% if vacancy.id in data %}
             <td><a class="btn btn-success">Applied</a></td>
             {% else %}
-            <td><a href="/job_detail/{{job.id}}/" class="btn btn-success">Apply</a></td>
+            <td><a href="/job_detail/{{ vacancy.id }}/" class="btn btn-success">Apply</a></td>
             {% endif %}
         </tr>
         {% endfor %}

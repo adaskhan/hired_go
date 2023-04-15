@@ -21,9 +21,9 @@
             {% for i in application %}
             <tr>
                 <td>{{forloop.counter}}</td>
-                <td>{{i.job}}</td>
+                <td>{{i.vacancy}}</td>
                 <td>{{i.applicant}}</td>
-                <td>{{i.apply_date}}</td>
+                <td>{{i.application_date}}</td>
                 <td><a href="{{i.resume.url}}" class="btn"><i class="fa fa-file"></i></a></td>
                 <td><a href="#" class="btn"><i class="fa fa-trash"></i></a></td>
             </tr>

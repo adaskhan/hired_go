@@ -31,7 +31,7 @@ class JobSearcher(models.Model):
         on_delete=models.CASCADE
     )
     phone = models.CharField(max_length=20)
-    image = models.ImageField(upload_to="")
+    image = models.ImageField(upload_to="", null=True)
     gender = models.CharField(max_length=10)
     type = models.CharField(max_length=15)
 
@@ -44,7 +44,7 @@ class Recruiter(models.Model):
         to=User,
         on_delete=models.CASCADE
     )
-    phone = models.CharField(max_length=10)
+    phone = models.CharField(max_length=20)
     image = models.ImageField(upload_to="")
     gender = models.CharField(max_length=10)
     type = models.CharField(max_length=15)

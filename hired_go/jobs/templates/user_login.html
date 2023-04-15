@@ -6,10 +6,9 @@
 {% endblock %}
 {% block body %}
 
-<form method="POST"> {% csrf_token %}
+<form method="POST">
+    {% csrf_token %}
     <div class="container mt-5">
-        <h6>Haven't register yet, then click here        <a href="/signup/" type="submit" class="btn" style="background-color: #4f868c; color: white;">Signup</a>
-        </h6>
         <div class="mb-3">
             <label for="username" class="form-label"><i style="font-weight: bold;">Username</i></label>
             <input type="text" class="form-control" id="username" name="username" placeholder="Enter Username">
@@ -19,7 +18,12 @@
             <input type="password" class="form-control" id="password" name="password" placeholder="Enter Password">
         </div>
         <br>
-        <input type="submit" value="Submit" class="btn" style="background-color: #4f868c; color: white; font-size: larger; width: 8rem;">
+        <input type="submit" value="Submit" class="btn" style="background-color: #d4a939; color: white; font-size: larger; width: 8rem;">
+
+        <br>
+        <br>
+        <h6>Еще не зарегистрировались, тогда нажмите здесь        <a href="/signup/" type="submit" class="btn" style="background-color: #d4a939; color: white;">Signup</a>
+        </h6>
 
     </div>
 </form>

@@ -14,7 +14,29 @@
             <input type="text" class="form-control" name="job_title" id="job_title" placeholder="Job Title" required>
         </div>
     </div>
-    
+
+    <div class="row mt-3">
+        <div class="form-group col-md-12">
+            <label>Vacancy Type</label>
+            <select name="vacancy_type" id="vacancy_type" class="form-control" required>
+                {% for vacancy_type in vacancy_types %}
+                <option value="{{ vacancy_type }}">{{ vacancy_type.value }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="form-group col-md-12">
+            <label>Tech Stack</label>
+            <select name="tech_stack" id="tech_stack" class="form-control" required>
+                {% for tech_stack in techstacks %}
+                <option value="{{ tech_stack.value }}">{{ tech_stack.value }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
     <div class="row mt-3">
         <div class="form-group col-md-6">
             <label>Start Date</label>
@@ -42,8 +64,8 @@
             <label>Skills Required</label>
             <input type="text" class="form-control" name="skills" id="skills" placeholder="Enter the required skills for the job" required>
         </div>
-        </div>
-    
+    </div>
+
     <div class="row mt-3">
         <div class="form-group col-md-12">
             <label>Company Location</label>
@@ -54,10 +76,10 @@
     <div class="row mt-3">
         <div class="form-group col-md-12">
             <label>Job Description</label>
-           <textarea name="description" id="description" class="form-control" cols="30" rows="4" placeholder="Description of the exact job" required></textarea>
+            <textarea name="description" id="description" class="form-control" cols="30" rows="4" placeholder="Description of the exact job" required></textarea>
         </div>
     </div>
-<input type="submit" value="Submit" class="btn mt-3" style="background-color: #4f868c; color: white; font-size: larger; width: 8rem;">
+    <input type="submit" value="Submit" class="btn mt-3" style="background-color: #d4a939; color: white; font-size: larger; width: 8rem;">
 </form>
 {% endblock %}
 {% block js %}

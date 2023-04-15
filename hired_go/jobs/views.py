@@ -8,11 +8,12 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 
 from django.utils.decorators import method_decorator
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import ListView, UpdateView, DeleteView
 
+from .forms import VacancyForm
 from .models import *
 
 
@@ -81,57 +82,51 @@ class UserHomepageView(View):
 class AllJobsView(View):
     @method_decorator(login_required)
     def get(self, request):
-        jobs = Vacancy.objects.all().order_by('-start_date')
+        vacancies = Vacancy.objects.all().order_by('-start_date')
         applicant = JobSearcher.objects.get(user=request.user)
         apply = Application.objects.filter(applicant=applicant)
         data = []
         for i in apply:
-            data.append(i.job.id)
-        return render(request, "all_jobs.html", {'jobs': jobs, 'data': data})
+            data.append(i.vacancy.id)
+        return render(request, "all_jobs.html", {'vacancies': vacancies, 'data': data})
 
 
 class JobDetailView(View):
-    def get(self, request, myid):
-        job = Vacancy.objects.get(id=myid)
+    def get(self, request, pk):
+        job = Vacancy.objects.get(id=pk)
         return render(request, "job_detail.html", {'job': job})
 
 
+@method_decorator(login_required(login_url='/user_login'), name='dispatch')
 class JobApplyView(View):
-    @login_required(login_url='/user_login')
-    def get(self, request, myid):
+    def get(self, request, pk):
         applicant = JobSearcher.objects.get(user=request.user)
-        job = Vacancy.objects.get(id=myid)
-        date_today = date.today()
-        if job.end_date < date_today:
+        vacancy = Vacancy.objects.get(id=pk)
+        if vacancy.end_date < date.today():
             closed = True
             return render(request, "job_apply.html", {'closed': closed})
-        elif job.start_date > date_today:
+        elif vacancy.start_date > date.today():
             not_open = True
-            return render(request, "job_apply.html", {'not_open': not_open})
+            return render(request, "job_apply.html", {'notopen': not_open})
         else:
-            return render(request, "job_apply.html", {'job': job})
+            return render(request, "job_apply.html", {'job': vacancy})
 
-    @login_required(login_url='/user_login')
-    def post(self, request, myid):
+    def post(self, request, pk):
         applicant = JobSearcher.objects.get(user=request.user)
-        job = Vacancy.objects.get(id=myid)
-        date_today = date.today()
-        if job.end_date < date_today or job.start_date > date_today:
-            return redirect('job_apply', myid=myid)
-
+        vacancy = Vacancy.objects.get(id=pk)
         resume = request.FILES['resume']
         Application.objects.create(
-            job=job, company=job.company, applicant=applicant, resume=resume, apply_date=date_today)
+            vacancy=vacancy, company=vacancy.company_name, applicant=applicant, resume=resume, application_date=date.today())
         alert = True
-        return render(request, "job_apply.html", {'alert': alert, 'job': job})
+        return render(request, "job_apply.html", {'alert': alert})
 
 
 class AllApplicantsView(View):
     @method_decorator(login_required)
-    def get(self, request, myid):
-        vacancy = Vacancy.objects.get(id=myid)
-        applicants = vacancy.jobapplication_set.filter(status="Applied")
-        return render(request, "all_applicants.html", {'applicants': applicants})
+    def get(self, request):
+        recruiter = Recruiter.objects.get(user=request.user)
+        application = Application.objects.filter(company=recruiter)
+        return render(request, "all_applicants.html", {'application': application})
 
 
 class SignUpView(View):
@@ -146,7 +141,7 @@ class SignUpView(View):
         password2 = request.POST['password2']
         phone = request.POST['phone']
         gender = request.POST['gender']
-        image = request.FILES['image']
+        image = request.FILES.get('image')
 
         if password1 != password2:
             messages.error(request, "Passwords do not match.")
@@ -154,7 +149,9 @@ class SignUpView(View):
 
         user = User.objects.create_user(first_name=first_name, last_name=last_name, username=username,
                                         password=password1)
-        applicants = JobSearcher.objects.create(user=user, phone=phone, gender=gender, image=image, type="applicant")
+        applicants = JobSearcher.objects.create(user=user, phone=phone, gender=gender, type="applicant")
+        if image:
+            applicants.image = image
         user.save()
         applicants.save()
         return render(request, "user_login.html")
@@ -243,16 +240,25 @@ class CompanyHomepageView(View):
         return render(request, "company_homepage.html", {'alert': alert})
 
 
+from .models import TechStack, VacancyType
+
+
 class AddJobView(View):
     def get(self, request):
         if not request.user.is_authenticated:
             return redirect("/company_login")
-        return render(request, "add_job.html")
+
+        techstacks = list(TechStack)
+        vacancy_types = list(VacancyType)
+
+        return render(request, "add_job.html", {'techstacks': techstacks, 'vacancy_types': vacancy_types})
 
     def post(self, request):
         if not request.user.is_authenticated:
             return redirect("/company_login")
         title = request.POST.get('job_title')
+        vacancy_type = request.POST.get('vacancy_type')
+        tech_stack = request.POST.get('tech_stack')
         start_date = request.POST.get('start_date')
         end_date = request.POST.get('end_date')
         salary = request.POST.get('salary')
@@ -262,9 +268,10 @@ class AddJobView(View):
         description = request.POST.get('description')
         user = request.user
         company = Recruiter.objects.get(user=user)
-        job = Vacancy.objects.create(company=company, title=title, start_date=start_date, end_date=end_date, salary=salary,
-                                 image=company.image, experience=experience, location=location, skills=skills,
-                                 description=description, creation_date=date.today())
+        job = Vacancy.objects.create(company_name=company, title=title, start_date=start_date, end_date=end_date,
+                                     salary=salary, tech_stack=tech_stack, vacancy_type=vacancy_type,
+                                     company_logo=company.image, experience=experience, location=location, skills=skills,
+                                     description=description, creation_date=date.today())
         job.save()
         alert = True
         return render(request, "add_job.html", {'alert': alert})
@@ -275,46 +282,30 @@ class JobListView(View):
         if not request.user.is_authenticated:
             return redirect("/company_login")
         companies = Recruiter.objects.get(user=request.user)
-        jobs = Vacancy.objects.filter(company=companies)
+        jobs = Vacancy.objects.filter(company_name=companies)
         return render(request, "job_list.html", {'jobs': jobs})
 
 
 class EditJobView(View):
-    def get(self, request, myid):
+    def get(self, request, pk):
         if not request.user.is_authenticated:
             return redirect("/company_login")
-        job = Vacancy.objects.get(id=myid)
-        return render(request, "edit_job.html", {'job': job})
+        vacancy = Vacancy.objects.get(id=pk)
+        form = VacancyForm(request.POST or None, request.FILES or None, instance=vacancy, user=request.user)
+        return render(request, "edit_job.html", {'form': form})
 
-    def post(self, request, myid):
+    def post(self, request, pk):
         if not request.user.is_authenticated:
             return redirect("/company_login")
-        job = Vacancy.objects.get(id=myid)
-        title = request.POST.get('job_title')
-        start_date = request.POST.get('start_date')
-        end_date = request.POST.get('end_date')
-        salary = request.POST.get('salary')
-        experience = request.POST.get('experience')
-        location = request.POST.get('location')
-        skills = request.POST.get('skills')
-        description = request.POST.get('description')
-
-        job.title = title
-        job.salary = salary
-        job.experience = experience
-        job.location = location
-        job.skills = skills
-        job.description = description
-
-        job.save()
-        if start_date:
-            job.start_date = start_date
-            job.save()
-        if end_date:
-            job.end_date = end_date
-            job.save()
-        alert = True
-        return render(request, "edit_job.html", {'job': job, 'alert': alert})
+        vacancy = Vacancy.objects.get(id=pk)
+        form = VacancyForm(request.POST or None, request.FILES or None, instance=vacancy, user=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Job details have been updated successfully.")
+            return redirect('job_list')
+        else:
+            messages.error(request, "Please correct the errors below.")
+        return render(request, "edit_job.html", {'form': form})
 
 
 class CompanyLogoView(View):
@@ -348,9 +339,11 @@ class AdminLoginView(LoginView):
     def form_valid(self, form):
         user = form.get_user()
         if user.is_superuser:
-            return super().form_valid(form)
+            super().form_valid(form)
+            return redirect("/all_companies")
         else:
-            return render(self.request, self.template_name, {'alert': True})
+            alert = True
+            return render(form, "admin_login.html", {"alert": alert})
 
 
 class ApplicantListView(LoginRequiredMixin, ListView):
@@ -375,14 +368,20 @@ class PendingCompaniesListView(LoginRequiredMixin, ListView):
     queryset = Recruiter.objects.filter(status='pending')
 
 
-class ChangeStatusView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
-    model = Recruiter
-    template_name = 'change_status.html'
-    fields = ['status']
-    success_url = reverse_lazy('pending_companies_list')
+class ChangeStatusView(LoginRequiredMixin, View):
+    login_url = '/admin_login'
 
-    def test_func(self):
-        return self.request.user.is_superuser
+    def get(self, request, pk):
+        company = get_object_or_404(Recruiter, id=pk)
+        return render(request, "change_status.html", {'company': company})
+
+    def post(self, request, pk):
+        company = get_object_or_404(Recruiter, id=pk)
+        status = request.POST['status']
+        company.status = status
+        company.save()
+        alert = True
+        return render(request, "change_status.html", {'company': company, 'alert': alert})
 
 
 class AcceptedCompaniesListView(LoginRequiredMixin, ListView):
