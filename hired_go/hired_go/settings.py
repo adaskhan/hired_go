@@ -30,6 +30,7 @@ INSTALLED_APPS = [
 
     'jobs',
     'rest_framework',
+    'rest_framework.authtoken'
 ]
 
 MIDDLEWARE = [
@@ -61,6 +62,19 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'hired_go.wsgi.application'
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+    ]
+}
+
+AUTHENTICATION_BACKENDS = ['django.contrib.auth.backends.ModelBackend', 'jobs.backends.EmailBackend']
 
 
 # Database

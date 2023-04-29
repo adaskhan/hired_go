@@ -1,7 +1,7 @@
 from enum import Enum
 
+from django.contrib.auth.models import AbstractUser, User
 from django.db import models
-from django.contrib.auth.models import User
 
 
 class VacancyType(Enum):
@@ -40,15 +40,17 @@ class JobSearcher(models.Model):
 
 
 class Recruiter(models.Model):
-    user = models.ForeignKey(
+    user = models.OneToOneField(
         to=User,
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
+        primary_key=True
     )
+    email = models.EmailField(max_length=255, unique=True, null=True)
     phone = models.CharField(max_length=20)
-    image = models.ImageField(upload_to="")
+    image = models.ImageField(upload_to="", null=True, blank=True)
     gender = models.CharField(max_length=10)
-    type = models.CharField(max_length=15)
-    status = models.CharField(max_length=20)
+    type = models.CharField(max_length=15, default='recruiter')
+    status = models.CharField(max_length=20, default='pending')
     company_name = models.CharField(max_length=100)
 
     def __str__(self):
