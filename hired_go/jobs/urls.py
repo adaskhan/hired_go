@@ -1,7 +1,13 @@
 from django.urls import path
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView, TokenVerifyView
+
 from . import views
 
 urlpatterns = [
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
+
     # User
     path("api/user_login/", views.UserLoginAPIView.as_view(), name="user_login_api"),
     path("api/user_signup/", views.UserSignUpAPIView.as_view(), name="signup_api"),
@@ -9,7 +15,7 @@ urlpatterns = [
     path("api/user_logout/", views.UserLogoutAPIView.as_view(), name="logout_api"),
     path("api/all_vacancies/", views.AllVacanciesAPIView.as_view(), name="all_jobs_api"),
     path("api/vacancies_detail/<int:pk>/", views.VacancyDetailAPIView.as_view(), name="job_detail_api"),
-    path("api/vacancies_apply/<int:pk>/", views.job_apply_view, name="job_apply_api"),
+    path("api/vacancies_apply/<int:pk>/", views.JobApplyView.as_view(), name="job_apply_api"),
 
     # Recruiter
     path("api/recruiter_signup/", views.RecruiterSignUpAPIView().as_view(), name="company_signup_api"),
@@ -19,7 +25,8 @@ urlpatterns = [
     path("api/vacancies_list/", views.VacancyListAPIView.as_view(), name="job_list_api"),
     path("api/edit_vacancy/<int:pk>/", views.EditVacancyAPIView.as_view(), name="edit_job_api"),
     path("api/recruiter_logo/<int:pk>/", views.RecruiterLogoAPIView.as_view(), name="company_logo_api"),
-    path("api/all_applicants/", views.all_applicants_view, name="all_applicants_api"),
+    path("api/all_applicants/", views.AllApplicantsAPIView.as_view(), name="all_applicants_api"),
+    path("api/all_applicants/<int:pk>/", views.VacancyApplicantsAPIView.as_view(), name="vacancy_applicants_api"),
 
     # Admin
     path("api/admin_login/", views.AdminLoginAPIView.as_view(), name="admin_login_api"),
