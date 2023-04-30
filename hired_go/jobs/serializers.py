@@ -1,9 +1,5 @@
-from abc import ABC
-from django.core.exceptions import ValidationError
-from django.contrib.auth import authenticate, get_user_model
-from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth import authenticate
 from rest_framework import serializers
-from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import User, Recruiter, Vacancy, JobSearcher, Application
@@ -78,6 +74,15 @@ class RecruiterSignUpSerializer(serializers.ModelSerializer):
             'password': {'write_only': True}
         }
 
+    def validate(self, data):
+        password = data.get('password')
+        password2 = data.get('password2')
+
+        if password != password2:
+            raise serializers.ValidationError({"password": "Passwords must match."})
+
+        return data
+
     def create(self, validated_data):
         user_data = validated_data.pop('user')
         password = validated_data.pop('password')
@@ -99,6 +104,26 @@ class RecruiterSignUpSerializer(serializers.ModelSerializer):
 class RecruiterLoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField()
+
+    def validate(self, data):
+        email = data.get('email')
+        password = data.get('password')
+
+        if not email:
+            raise serializers.ValidationError({"email": "This field is required."})
+
+        if not password:
+            raise serializers.ValidationError({"password": "This field is required."})
+
+        user = authenticate(email=email, password=password)
+        if user:
+            if user.is_active:
+                data['user'] = user
+                return data
+            else:
+                raise serializers.ValidationError({"user": "User is not active"})
+        else:
+            raise serializers.ValidationError({"user": "Unable to log in with provided credentials"})
 
 
 class RecruiterSerializer(serializers.ModelSerializer):

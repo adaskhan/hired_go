@@ -5,23 +5,20 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from rest_framework import generics, status
-from rest_framework.decorators import parser_classes
 from rest_framework.parsers import FileUploadParser
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.authtoken.models import Token
 
-from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth import logout, authenticate
+from django.core.exceptions import ValidationError
 
-from .models import User, Recruiter, Vacancy, JobSearcher, Application, TechStack, VacancyType
+from .models import User, Recruiter, Vacancy, JobSearcher, Application
 from .serializers import (
     UserLoginSerializer,
     UserSignUpSerializer,
     UserSerializer,
     RecruiterSignUpSerializer,
-    RecruiterLoginSerializer,
     RecruiterSerializer,
     VacancySerializer,
     AddVacancySerializer,
@@ -33,16 +30,23 @@ from .serializers import (
 )
 
 
+class CustomValidationFailed(Exception):
+    pass
+
+
 class UserLoginAPIView(APIView):
     def post(self, request):
         serializer = UserLoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except ValidationError as e:
+            raise CustomValidationFailed(e.message)
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
 
         user = authenticate(request, email=email, password=password)
         if not user:
-            return Response({'error': 'Invalid email or password'}, status=status.HTTP_401_UNAUTHORIZED)
+            return CustomValidationFailed({"error": "Invalid email or password"})
 
         refresh = RefreshToken.for_user(user)
         return Response({
@@ -266,15 +270,18 @@ class AdminLoginAPIView(generics.GenericAPIView):
 
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            user = serializer.validated_data['user']
-            if user.is_superuser:
-                refresh = RefreshToken.for_user(user)
-                return Response({
-                    'refresh': str(refresh),
-                    'access': str(refresh.access_token),
-                }, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except ValidationError as e:
+            raise CustomValidationFailed(e.message)
+        user = serializer.validated_data['user']
+        if user.is_superuser:
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            }, status=status.HTTP_200_OK)
+        raise CustomValidationFailed({"error": "User is not a superuser"})
 
 
 class ApplicantListAPIView(generics.ListAPIView):
