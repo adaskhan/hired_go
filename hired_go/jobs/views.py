@@ -1,5 +1,9 @@
 from datetime import date
 
+from rest_framework.generics import ListAPIView
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from rest_framework import generics, status
 from rest_framework.decorators import parser_classes
 from rest_framework.parsers import FileUploadParser
@@ -24,6 +28,8 @@ from .serializers import (
     EditVacancySerializer,
     JobSearcherSerializer,
     AdminLoginSerializer,
+    ChangeStatusSerializer,
+    ApplicationSerializer,
 )
 
 
@@ -38,8 +44,11 @@ class UserLoginAPIView(APIView):
         if not user:
             return Response({'error': 'Invalid email or password'}, status=status.HTTP_401_UNAUTHORIZED)
 
-        token, created = Token.objects.get_or_create(user=user)
-        return Response({'token': token.key})
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        })
 
 
 class UserSignUpAPIView(generics.CreateAPIView):
@@ -49,6 +58,7 @@ class UserSignUpAPIView(generics.CreateAPIView):
 
 
 class UserHomepageAPIView(APIView):
+    authentication_classes = (JWTAuthentication,)
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
@@ -133,17 +143,21 @@ class RecruiterLoginAPIView(APIView):
             recruiter = Recruiter.objects.get(user=user)
             if recruiter.status == "pending":
                 return Response({"error": "Account not approved yet"}, status=status.HTTP_401_UNAUTHORIZED)
-            token, created = Token.objects.get_or_create(user=recruiter.user)
-            return Response({'token': token.key}, status=status.HTTP_200_OK)
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            }, status=status.HTTP_200_OK)
         else:
             return Response({"error": "Invalid email or password"}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 class RecruiterHomepageAPIView(APIView):
+    authentication_classes = (JWTAuthentication,)
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
-        recruiter = request.user
+        recruiter = Recruiter.objects.get(user=request.user)
         serialized_data = RecruiterSerializer(recruiter).data
         return Response(serialized_data)
 
@@ -164,6 +178,7 @@ class EditVacancyAPIView(generics.UpdateAPIView):
     queryset = Vacancy.objects.all()
     serializer_class = EditVacancySerializer
     permission_classes = (IsAuthenticated,)
+    partial = True
 
 
 class RecruiterLogoAPIView(APIView):
@@ -181,13 +196,14 @@ class RecruiterLogoAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated])
-@parser_classes([FileUploadParser])
-def job_apply_view(request, pk):
-    if request.method == 'GET':
+class JobApplyView(APIView):
+    parser_classes = [FileUploadParser]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
         applicant = JobSearcher.objects.get(user=request.user)
         vacancy = Vacancy.objects.get(id=pk)
+
         if vacancy.end_date < date.today():
             closed = True
             return Response({'closed': closed})
@@ -198,23 +214,43 @@ def job_apply_view(request, pk):
             serializer = VacancySerializer(vacancy)
             return Response(serializer.data)
 
-    elif request.method == 'POST':
+    def post(self, request, pk):
         applicant = JobSearcher.objects.get(user=request.user)
         vacancy = Vacancy.objects.get(id=pk)
-        resume = request.FILES['resume']
+        print(request.FILES)
+
+        if 'file' not in request.FILES:
+            return Response({'error': 'Please upload a resume.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        resume = request.FILES['file']
         Application.objects.create(
-            vacancy=vacancy, company=vacancy.company_name, applicant=applicant, resume=resume,
-            application_date=date.today())
+            vacancy=vacancy,
+            company=vacancy.company_name_id.company_name,
+            applicant=applicant,
+            resume=resume,
+            application_date=date.today()
+        )
         alert = True
-        return Response({'alert': alert})
+        return Response({'alert': alert}, status=status.HTTP_201_CREATED)
 
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def all_applicants_view(request):
-    recruiter = Recruiter.objects.get(user=request.user)
-    application = Application.objects.filter(company=recruiter)
-    return Response({'application': application})
+class AllApplicantsAPIView(ListAPIView):
+    serializer_class = ApplicationSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        recruiter = Recruiter.objects.get(user=self.request.user)
+        return Application.objects.filter(company=recruiter)
+
+
+class VacancyApplicantsAPIView(ListAPIView):
+    serializer_class = ApplicationSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        recruiter = Recruiter.objects.get(user=self.request.user)
+        vacancy_id = self.kwargs['pk']
+        return Application.objects.filter(company=recruiter, vacancy_id=vacancy_id)
 
 
 class UserLogoutView(generics.GenericAPIView):
@@ -233,13 +269,16 @@ class AdminLoginAPIView(generics.GenericAPIView):
         if serializer.is_valid():
             user = serializer.validated_data['user']
             if user.is_superuser:
-                login(request, user)
-                return Response(status=status.HTTP_204_NO_CONTENT)
+                refresh = RefreshToken.for_user(user)
+                return Response({
+                    'refresh': str(refresh),
+                    'access': str(refresh.access_token),
+                }, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ApplicantListAPIView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUser]
     queryset = JobSearcher.objects.all()
     serializer_class = JobSearcherSerializer
 
@@ -256,10 +295,10 @@ class PendingCompaniesListAPIView(generics.ListAPIView):
     serializer_class = RecruiterSerializer
 
 
-class ChangeStatusAPIView(generics.RetrieveUpdateAPIView):
+class ChangeStatusAPIView(generics.UpdateAPIView):
     permission_classes = [IsAdminUser]
     queryset = Recruiter.objects.all()
-    serializer_class = RecruiterSerializer
+    serializer_class = ChangeStatusSerializer
     lookup_field = 'user_id'
     lookup_url_kwarg = 'pk'
 
@@ -286,5 +325,3 @@ class DeleteCompanyAPIView(generics.DestroyAPIView):
     permission_classes = [IsAdminUser]
     queryset = Recruiter.objects.all()
     serializer_class = RecruiterSerializer
-    lookup_field = 'id'
-    lookup_url_kwarg = 'myid'
