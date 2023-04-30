@@ -4,13 +4,39 @@ from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
+from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import User, Recruiter, Vacancy, JobSearcher
+from .models import User, Recruiter, Vacancy, JobSearcher, Application
 
 
 class UserLoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField()
+
+    def validate(self, data):
+        email = data.get('email')
+        password = data.get('password')
+
+        if email and password:
+            user = authenticate(email=email, password=password)
+            if user:
+                if user.is_active:
+                    data['user'] = user
+                    return data
+                else:
+                    raise serializers.ValidationError('User is not active')
+            else:
+                raise serializers.ValidationError('Unable to log in with provided credentials')
+        else:
+            raise serializers.ValidationError('Must include "email" and "password"')
+
+    def create(self, validated_data):
+        user = validated_data['user']
+        refresh = RefreshToken.for_user(user)
+        return {
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        }
 
 
 class UserSignUpSerializer(serializers.ModelSerializer):
@@ -33,7 +59,7 @@ class UserSignUpSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id', 'email', 'first_name', 'last_name')
+        fields = ('id', 'username', 'first_name', 'last_name')
 
 
 class RecruiterSignUpSerializer(serializers.ModelSerializer):
@@ -59,24 +85,14 @@ class RecruiterSignUpSerializer(serializers.ModelSerializer):
         if password != password2:
             raise serializers.ValidationError({'password': 'Passwords must match.'})
         user = User.objects.create_user(**user_data, password=password)
-        recruiter = Recruiter.objects.create(user=user, **validated_data)
-        # password2 = validated_data.pop('password2')
-        # if validated_data['password'] != password2:
-        #     raise serializers.ValidationError({'password': 'Passwords do not match.'})
-        # username = validated_data.pop('username')
-        # user = User.objects.create_user(
-        #     username=username,
-        #     email=validated_data['email'],
-        #     password=validated_data['password']
-        # )
-        # recruiter = Recruiter.objects.create(
-        #     user=user,
-        #     phone=validated_data['phone'],
-        #     gender=validated_data['gender'],
-        #     company_name=validated_data['company_name'],
-        #     type='recruiter',
-        #     status='pending'
-        # )
+        recruiter = Recruiter.objects.create(
+            user=user,
+            email=validated_data.get('email'),
+            phone=validated_data.get('phone'),
+            gender=validated_data.get('gender'),
+            company_name=validated_data.get('company_name')
+        )
+
         return recruiter
 
 
@@ -86,9 +102,17 @@ class RecruiterLoginSerializer(serializers.Serializer):
 
 
 class RecruiterSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+
     class Meta:
         model = Recruiter
-        fields = ('user_id', 'email', 'company_name', 'status')
+        fields = '__all__'
+
+
+class ChangeStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Recruiter
+        fields = ('status',)
 
 
 class VacancySerializer(serializers.ModelSerializer):
@@ -100,13 +124,23 @@ class VacancySerializer(serializers.ModelSerializer):
 class AddVacancySerializer(serializers.ModelSerializer):
     class Meta:
         model = Vacancy
-        fields = ('job_title', 'job_description', 'job_location', 'job_salary', 'job_type', 'job_category')
+        fields = ('title', 'description', 'location', 'salary', 'vacancy_type', 'skills', 'company_name_id', 'experience', 'tech_stack', 'start_date', 'end_date')
 
 
 class EditVacancySerializer(serializers.ModelSerializer):
     class Meta:
         model = Vacancy
-        fields = ('job_title', 'job_description', 'job_location', 'job_salary', 'job_type', 'job_category')
+        fields = ('title', 'description', 'location', 'salary', 'vacancy_type', 'tech_stack', 'company_logo', 'experience', 'skills', 'start_date', 'end_date')
+        extra_kwargs = {
+            'title': {'required': False},
+            'description': {'required': False},
+            'location': {'required': False},
+            'salary': {'required': False},
+            'experience': {'required': False},
+            'skills': {'required': False},
+            'start_date': {'required': False},
+            'end_date': {'required': False},
+        }
 
 
 class JobSearcherSerializer(serializers.ModelSerializer):
@@ -150,3 +184,12 @@ class AdminLoginSerializer(serializers.Serializer):
                 raise serializers.ValidationError('Unable to log in with provided credentials')
         else:
             raise serializers.ValidationError('Must include "email" and "password"')
+
+
+class ApplicationSerializer(serializers.ModelSerializer):
+    company = serializers.StringRelatedField()
+
+    class Meta:
+        model = Application
+        fields = ['id', 'company', 'vacancy', 'applicant', 'resume', 'application_date']
+        read_only_fields = ['id', 'company', 'vacancy', 'applicant', 'application_date']
