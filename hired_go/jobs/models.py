@@ -74,12 +74,12 @@ class Vacancy(models.Model):
         choices=VACANCY_TYPE_CHOICES,
         default=VacancyType.office.value,
     )
-    company_name = models.ForeignKey(
+    company_name_id = models.ForeignKey(
         to=Recruiter,
         on_delete=models.CASCADE
     )
     salary = models.FloatField()
-    company_logo = models.ImageField(upload_to="")
+    company_logo = models.ImageField(upload_to="", null=True)
     description = models.TextField(max_length=400)
     experience = models.CharField(max_length=100)
     location = models.CharField(max_length=100)
@@ -98,7 +98,10 @@ class Vacancy(models.Model):
 
 
 class Application(models.Model):
-    company = models.CharField(max_length=200, default="")
+    company = models.ForeignKey(
+        to=Recruiter,
+        on_delete=models.CASCADE
+    )
     vacancy = models.ForeignKey(
         to=Vacancy,
         on_delete=models.CASCADE
