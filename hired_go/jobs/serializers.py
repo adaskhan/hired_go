@@ -2,53 +2,64 @@ from django.contrib.auth import authenticate
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .backends import EmailOrUsernameAuthenticationBackend
 from .models import User, Recruiter, Vacancy, JobSearcher, Application
 
 
 class UserLoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+    username = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False)
     password = serializers.CharField()
 
     def validate(self, data):
+        username = data.get('username')
         email = data.get('email')
         password = data.get('password')
 
-        if email and password:
-            user = authenticate(email=email, password=password)
-            if user:
-                if user.is_active:
-                    data['user'] = user
-                    return data
-                else:
-                    raise serializers.ValidationError('User is not active')
-            else:
-                raise serializers.ValidationError('Unable to log in with provided credentials')
-        else:
-            raise serializers.ValidationError('Must include "email" and "password"')
+        if not (username or email) or not password:
+            raise serializers.ValidationError('Must include "username/email" and "password"')
 
-    def create(self, validated_data):
-        user = validated_data['user']
-        refresh = RefreshToken.for_user(user)
-        return {
-            'refresh': str(refresh),
-            'access': str(refresh.access_token),
-        }
+        user = EmailOrUsernameAuthenticationBackend().authenticate(request=None, username=username, password=password)
+
+        if not user:
+            raise serializers.ValidationError('Invalid login credentials')
+
+        if not user.is_active:
+            raise serializers.ValidationError('User is not active')
+
+        data['user'] = user
+        return data
 
 
 class UserSignUpSerializer(serializers.ModelSerializer):
     username = serializers.CharField(write_only=True)
+    phone = serializers.CharField(write_only=True)
+    image = serializers.ImageField(write_only=True, required=False, allow_null=True)
+    gender = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
-        fields = ('id', 'email', 'username', 'first_name', 'last_name', 'password')
+        fields = ('id', 'email', 'username', 'first_name', 'last_name', 'password', 'phone', 'image', 'gender')
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
         username = validated_data.pop('username')
+        phone = validated_data.pop('phone')
+        image = validated_data.pop('image', None)
+        gender = validated_data.pop('gender')
         user = User.objects.create_user(
             username=username,
             **validated_data
         )
+        print("User password hash:", user.password)
+        JobSearcher.objects.create(
+            user=user,
+            phone=phone,
+            image=image,
+            gender=gender,
+            type="jobsearcher"  # or any other default values you want to set
+        )
+
         return user
 
 
@@ -59,7 +70,9 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class RecruiterSignUpSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(source='user.username')
+    first_name = serializers.CharField(max_length=30)
+    last_name = serializers.CharField(max_length=150)
+    username = serializers.CharField()
     email = serializers.EmailField(max_length=255)
     password = serializers.CharField(max_length=128, write_only=True)
     password2 = serializers.CharField(max_length=128, write_only=True)
@@ -69,7 +82,7 @@ class RecruiterSignUpSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Recruiter
-        fields = ['username', 'email', 'password', 'password2', 'phone', 'gender', 'company_name']
+        fields = ['username', 'email', 'first_name', 'last_name', 'password', 'password2', 'phone', 'gender', 'company_name']
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -84,12 +97,16 @@ class RecruiterSignUpSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        user_data = validated_data.pop('user')
         password = validated_data.pop('password')
         password2 = validated_data.pop('password2')
         if password != password2:
             raise serializers.ValidationError({'password': 'Passwords must match.'})
-        user = User.objects.create_user(**user_data, password=password)
+        user = User.objects.create_user(
+            username=validated_data['username'],
+            password=password,
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name']
+        )
         recruiter = Recruiter.objects.create(
             user=user,
             email=validated_data.get('email'),
@@ -190,25 +207,29 @@ class CompanyLogoSerializer(serializers.ModelSerializer):
 
 
 class AdminLoginSerializer(serializers.Serializer):
-    email = serializers.EmailField(required=True)
-    password = serializers.CharField(style={'input_type': 'password'})
+    username = serializers.CharField(required=True)
+    password = serializers.CharField()
 
     def validate(self, data):
-        email = data.get('email')
+        username = data.get('username')
         password = data.get('password')
 
-        if email and password:
-            user = authenticate(email=email, password=password)
-            if user:
-                if user.is_active and user.is_superuser:
-                    data['user'] = user
-                    return data
-                else:
-                    raise serializers.ValidationError('User is not active or not a superuser')
-            else:
-                raise serializers.ValidationError('Unable to log in with provided credentials')
-        else:
-            raise serializers.ValidationError('Must include "email" and "password"')
+        if not username or not password:
+            raise serializers.ValidationError('Must include "username" and "password"')
+
+        user = EmailOrUsernameAuthenticationBackend().authenticate(request=None, username=username, password=password)
+
+        if not user:
+            raise serializers.ValidationError('Invalid login credentials')
+
+        if not user.is_active:
+            raise serializers.ValidationError('User is not active')
+
+        if not user.is_superuser:
+            raise serializers.ValidationError('User is not a superuser')
+
+        data['user'] = user
+        return data
 
 
 class ApplicationSerializer(serializers.ModelSerializer):
