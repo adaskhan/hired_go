@@ -1,5 +1,8 @@
 from datetime import date
 
+from django.contrib.auth.hashers import make_password
+from django.core.mail import send_mail
+from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -13,6 +16,7 @@ from rest_framework.views import APIView
 from django.contrib.auth import logout, authenticate
 from django.core.exceptions import ValidationError
 
+from .backends import EmailOrUsernameAuthenticationBackend
 from .models import User, Recruiter, Vacancy, JobSearcher, Application
 from .serializers import (
     UserLoginSerializer,
@@ -28,6 +32,7 @@ from .serializers import (
     ChangeStatusSerializer,
     ApplicationSerializer,
 )
+from hired_go.settings import EMAIL_HOST_USER
 
 
 class CustomValidationFailed(Exception):
@@ -41,13 +46,7 @@ class UserLoginAPIView(APIView):
             serializer.is_valid(raise_exception=True)
         except ValidationError as e:
             raise CustomValidationFailed(e.message)
-        email = serializer.validated_data['email']
-        password = serializer.validated_data['password']
-
-        user = authenticate(request, email=email, password=password)
-        if not user:
-            return CustomValidationFailed({"error": "Invalid email or password"})
-
+        user = serializer.validated_data['user']
         refresh = RefreshToken.for_user(user)
         return Response({
             'refresh': str(refresh),
@@ -59,6 +58,19 @@ class UserSignUpAPIView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSignUpSerializer
     permission_classes = (AllowAny,)
+
+    def perform_create(self, serializer):
+        user = serializer.save()
+        subject = 'Welcome to our job portal'
+        message = f'Dear {user.first_name},\n\n' \
+                  f'Thank you for registering on our job portal. Your login credentials are as follows:\n\n' \
+                  f'Username: {user.username}\n' \
+                  f'Password: \n\n' \
+                  f'Thank you,\n' \
+                  f'The HiredGo Team'
+        from_email = EMAIL_HOST_USER
+        recipient_list = [user.email]
+        send_mail(subject, message, from_email, recipient_list)
 
 
 class UserHomepageAPIView(APIView):
@@ -128,23 +140,42 @@ class RecruiterSignUpAPIView(generics.CreateAPIView):
     permission_classes = [AllowAny]
     serializer_class = RecruiterSignUpSerializer
 
-    def post(self, request):
+    def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save()
+
+            password = make_password(serializer.validated_data.get('password'))
+            serializer.validated_data['password'] = password
+            user = serializer.save()
+            subject = 'Welcome to our job portal'
+            message = f'Dear {user.user.first_name},\n\n' \
+                      f'Thank you for registering on our job portal. Your login credentials are as follows:\n\n' \
+                      f'Username: {user.username}\n' \
+                      f'Password: {serializer.validated_data.get("password")}\n\n' \
+                      f'Thank you,\n' \
+                      f'The HiredGo Team'
+            from_email = EMAIL_HOST_USER
+            recipient_list = [user.email]
+            send_mail(subject, message, from_email, recipient_list)
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class RecruiterLoginAPIView(APIView):
     def post(self, request):
-        email = request.data.get('email')
+        username = request.data.get('username')
         password = request.data.get('password')
 
-        user = authenticate(email=email, password=password)
+        user = EmailOrUsernameAuthenticationBackend().authenticate(request=None, username=username, password=password)
 
         if user is not None:
-            recruiter = Recruiter.objects.get(user=user)
+            try:
+                recruiter = Recruiter.objects.get(user=user)
+            except Recruiter.DoesNotExist:
+                return Response({"error": "Invalid login credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+
             if recruiter.status == "pending":
                 return Response({"error": "Account not approved yet"}, status=status.HTTP_401_UNAUTHORIZED)
             refresh = RefreshToken.for_user(user)
@@ -153,7 +184,7 @@ class RecruiterLoginAPIView(APIView):
                 'access': str(refresh.access_token),
             }, status=status.HTTP_200_OK)
         else:
-            return Response({"error": "Invalid email or password"}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"error": "Invalid login credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 class RecruiterHomepageAPIView(APIView):
@@ -229,11 +260,20 @@ class JobApplyView(APIView):
         resume = request.FILES['file']
         Application.objects.create(
             vacancy=vacancy,
-            company=vacancy.company_name_id.company_name,
+            company=vacancy.company_name_id,
             applicant=applicant,
             resume=resume,
             application_date=date.today()
         )
+
+        send_mail(
+            'Application received',
+            f'Your application for {vacancy.title} has been received.',
+            EMAIL_HOST_USER,
+            [request.user.email],
+            fail_silently=False,
+        )
+
         alert = True
         return Response({'alert': alert}, status=status.HTTP_201_CREATED)
 
@@ -268,8 +308,8 @@ class UserLogoutView(generics.GenericAPIView):
 class AdminLoginAPIView(generics.GenericAPIView):
     serializer_class = AdminLoginSerializer
 
-    def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
+    def post(self, request):
+        serializer = AdminLoginSerializer(data=request.data)
         try:
             serializer.is_valid(raise_exception=True)
         except ValidationError as e:
@@ -309,6 +349,31 @@ class ChangeStatusAPIView(generics.UpdateAPIView):
     lookup_field = 'user_id'
     lookup_url_kwarg = 'pk'
 
+    def update(self, request, *args, **kwargs):
+        recruiter = self.get_object()
+        old_status = recruiter.status
+        response = super().update(request, *args, **kwargs)
+        new_status = response.data.get('status')
+
+        if old_status != new_status and new_status in ["Accepted", "Rejected"]:
+            subject = "Your account status has been updated"
+            if new_status == "Accepted":
+                message = f"Dear {recruiter.user.first_name},\n\n" \
+                          f"Your recruiter account has been accepted. You can now log in and start posting jobs.\n\n" \
+                          f"Thank you,\n" \
+                          f"The HiredGo Team"
+            else:  # Rejected
+                message = f"Dear {recruiter.user.first_name},\n\n" \
+                          f"Unfortunately, your recruiter account has been rejected. If you have any questions, please contact our support team.\n\n" \
+                          f"Thank you,\n" \
+                          f"The HiredGo Team"
+
+            from_email = EMAIL_HOST_USER
+            recipient_list = [recruiter.email]
+            send_mail(subject, message, from_email, recipient_list)
+
+        return response
+
 
 class AcceptedCompaniesListAPIView(generics.ListAPIView):
     permission_classes = [IsAdminUser]
@@ -332,3 +397,42 @@ class DeleteCompanyAPIView(generics.DestroyAPIView):
     permission_classes = [IsAdminUser]
     queryset = Recruiter.objects.all()
     serializer_class = RecruiterSerializer
+
+
+class InviteCandidateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        application = Application.objects.get(id=pk)
+        recruiter = Recruiter.objects.get(user=request.user)
+        applicant = application.applicant
+        subject = 'Interview invitation'
+        message = f'Dear {applicant.user.first_name},\n\n' \
+                  f'We would like to invite you for an interview for the position of {application.vacancy.title} ' \
+                  f'at {recruiter.company_name}. Please let us know your availability.\n\n' \
+                  f'Thank you,\n' \
+                  f'{recruiter.company_name} Recruitment Team'
+        from_email = EMAIL_HOST_USER
+        recipient_list = [applicant.user.email]
+        send_mail(subject, message, from_email, recipient_list)
+        return Response({'message': 'Invitation sent successfully'}, status=status.HTTP_200_OK)
+
+
+class RefuseCandidateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        application = Application.objects.get(id=pk)
+        recruiter = Recruiter.objects.get(user=request.user)
+        applicant = application.applicant
+        subject = 'Application status update'
+        message = f'Dear {applicant.user.first_name},\n\n' \
+                  f'We regret to inform you that we will not be proceeding with your application for the ' \
+                  f'position of {application.vacancy.title} at {recruiter.company_name}. Thank you for your interest ' \
+                  f'in our company.\n\n' \
+                  f'Thank you,\n' \
+                  f'{recruiter.company_name} Recruitment Team'
+        from_email = EMAIL_HOST_USER
+        recipient_list = [applicant.user.email]
+        send_mail(subject, message, from_email, recipient_list)
+        return Response({'message': 'Application status updated successfully'}, status=status.HTTP_200_OK)
