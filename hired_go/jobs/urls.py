@@ -27,6 +27,8 @@ urlpatterns = [
     path("api/recruiter_logo/<int:pk>/", views.RecruiterLogoAPIView.as_view(), name="company_logo_api"),
     path("api/all_applicants/", views.AllApplicantsAPIView.as_view(), name="all_applicants_api"),
     path("api/all_applicants/<int:pk>/", views.VacancyApplicantsAPIView.as_view(), name="vacancy_applicants_api"),
+    path("api/invite_candidate/<int:pk>/", views.InviteCandidateAPIView.as_view(), name="invite_candidate_api"),
+    path("api/refuse_candidate/<int:pk>/", views.RefuseCandidateAPIView.as_view(), name="refuse_candidate_api"),
 
     # Admin
     path("api/admin_login/", views.AdminLoginAPIView.as_view(), name="admin_login_api"),
