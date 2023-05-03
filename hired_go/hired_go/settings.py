@@ -74,10 +74,13 @@ REST_FRAMEWORK = {
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
     ],
-    'EXCEPTION_HANDLER': 'app_name.exceptions.custom_exception_handler',
+    'EXCEPTION_HANDLER': 'hired_go.exceptions.custom_exception_handler',
 }
 
-AUTHENTICATION_BACKENDS = ['django.contrib.auth.backends.ModelBackend', 'jobs.backends.EmailBackend']
+AUTHENTICATION_BACKENDS = [
+    'jobs.backends.EmailOrUsernameAuthenticationBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
 
 
 # Database
@@ -181,3 +184,11 @@ SIMPLE_JWT = {
     "SLIDING_TOKEN_OBTAIN_SERIALIZER": "rest_framework_simplejwt.serializers.TokenObtainSlidingSerializer",
     "SLIDING_TOKEN_REFRESH_SERIALIZER": "rest_framework_simplejwt.serializers.TokenRefreshSlidingSerializer",
 }
+
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'hired.go.pro@gmail.com'
+EMAIL_HOST_PASSWORD = 'qclcyxdyhfciqcjk'
