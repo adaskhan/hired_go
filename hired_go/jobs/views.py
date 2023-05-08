@@ -117,23 +117,13 @@ class UserLogoutAPIView(APIView):
 class AllVacanciesAPIView(generics.ListAPIView):
     queryset = Vacancy.objects.all()
     serializer_class = VacancySerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
 
 
 class VacancyDetailAPIView(generics.RetrieveAPIView):
     queryset = Vacancy.objects.all()
     serializer_class = VacancySerializer
     permission_classes = (IsAuthenticated,)
-
-
-class VacancyApplyAPIView(APIView):
-    permission_classes = (IsAuthenticated,)
-
-    def post(self, request, pk):
-        vacancy = generics.get_object_or_404(Vacancy, pk=pk)
-        job_searcher = JobSearcher.objects.create(user=request.user, vacancy=vacancy)
-        serialized_data = JobSearcherSerializer(job_searcher).data
-        return Response(serialized_data)
 
 
 class RecruiterSignUpAPIView(generics.CreateAPIView):
@@ -252,7 +242,6 @@ class JobApplyView(APIView):
     def post(self, request, pk):
         applicant = JobSearcher.objects.get(user=request.user)
         vacancy = Vacancy.objects.get(id=pk)
-        print(request.FILES)
 
         if 'file' not in request.FILES:
             return Response({'error': 'Please upload a resume.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -271,6 +260,15 @@ class JobApplyView(APIView):
             f'Your application for {vacancy.title} has been received.',
             EMAIL_HOST_USER,
             [request.user.email],
+            fail_silently=False,
+        )
+
+        recruiter = Recruiter.objects.get(user=vacancy.company_name_id.user)
+        send_mail(
+            f'New application for {vacancy.title}',
+            f'A new job seeker has applied for {vacancy.title} on your job portal.',
+            EMAIL_HOST_USER,
+            [recruiter.user.email],
             fail_silently=False,
         )
 
