@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>SEARCH RESULTS</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+</head>
+<body>
+
+<div class="container-fluid">
+    <h2 style="text-align: center; font-weight: bold; display:bold; padding-top : 20px; padding-bottom : 20px; color:rgb(84, 105, 212);">Еңбек етсең емерсің</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th><h4 style="font-weight: bold; color:rgb(84, 105, 212);">Сайт</h4></th>
+                <th><h4 style="font-weight: bold; color:rgb(84, 105, 212);">Бос орын</h4></th>
+                <th><h4 style="font-weight: bold; color:rgb(84, 105, 212);">Жұмыс беруші</h4></th>
+                <th><h4 style="font-weight: bold; color:rgb(84, 105, 212);">Қайда?</h4></th>
+                <th><h4 style="font-weight: bold; color:rgb(84, 105, 212);">Толығырақ</h4></th>
+            </tr>
+        </thead>
+        <tbody>
+        
+            {% for job in headhunter_jobs %}
+            <tr>
+                <td><h5 style= "font-weight: bold;">{{ job.job_site }}</h5></td>
+                <td><h5 style= "font-weight: bold;">{{ job.job_title }}</h5></td>
+                <td><h5 style= "font-weight: bold;">{{ job.company_name }}</h5></td>
+                <td><h5 style= "font-weight: bold;">{{ job.job_location }}</h5></td>
+                <td><a href="{{ job.job_url }}" target="_blank"><h5 style= "font-weight: bold;">Ақпарат</h5></a></td>
+            </tr>
+            {% endfor %}
+
+            {% for job in linkedin_jobs %}
+            <tr>
+                <td><h5 style= "font-weight: bold;">{{ job.job_site }}</h5></td>
+                <td><h5 style= "font-weight: bold;">{{ job.job_title }}</h5></td>
+                <td><h5 style= "font-weight: bold;">{{ job.company_name }}</h5></td>
+                <td><h5 style= "font-weight: bold;">{{ job.company_location }}</h5></td>
+                <td><a href="{{ job.job_detail_url }}" target="_blank"><h5 style= "font-weight: bold;">Ақпарат</h5></a></td>
+            </tr>
+            {% endfor %}
+            
+        </tbody>
+    </table>
+        
+</div>
+
+</body>
+</html>
