@@ -51,7 +51,7 @@ class UserSignUpSerializer(serializers.ModelSerializer):
             username=username,
             **validated_data
         )
-        print("User password hash:", user.password)
+
         JobSearcher.objects.create(
             user=user,
             phone=phone,
