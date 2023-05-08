@@ -87,5 +87,3 @@ local_settings.py
 
 code/.env
 db.sqlite3
-code/media
-static
