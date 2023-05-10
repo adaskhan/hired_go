@@ -15,7 +15,10 @@ urlpatterns = [
     path("api/user_logout/", views.UserLogoutAPIView.as_view(), name="logout_api"),
     path("api/all_vacancies/", views.AllVacanciesAPIView.as_view(), name="all_jobs_api"),
     path("api/vacancies_detail/<int:pk>/", views.VacancyDetailAPIView.as_view(), name="job_detail_api"),
-    path("api/vacancies_apply/<int:pk>/", views.JobApplyView.as_view(), name="job_apply_api"),
+    path("api/vacancies_apply/<int:pk>/", views.JobApplyAPIView.as_view(), name="job_apply_api"),
+    path('api/create_resume/', views.ResumeCreateAPIView.as_view(), name='create_resume_api'),
+    path('api/view_resume/<int:pk>/', views.ResumeDetailAPIView.as_view(), name='resume_detail_api'),
+    path('api/change_resume/<int:pk>/', views.ChangeResumeAPIView.as_view(), name='change_resume_api'),
 
     # Recruiter
     path("api/recruiter_signup/", views.RecruiterSignUpAPIView().as_view(), name="company_signup_api"),
