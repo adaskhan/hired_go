@@ -3,7 +3,7 @@ from datetime import date
 from django.contrib.auth.hashers import make_password
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
-from rest_framework.generics import ListAPIView
+from rest_framework.generics import ListAPIView, CreateAPIView, RetrieveAPIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -17,7 +17,7 @@ from django.contrib.auth import logout, authenticate
 from django.core.exceptions import ValidationError
 
 from .backends import EmailOrUsernameAuthenticationBackend
-from .models import User, Recruiter, Vacancy, JobSearcher, Application
+from .models import User, Recruiter, Vacancy, JobSearcher, Application, Resume, Experience, Education
 from .serializers import (
     UserLoginSerializer,
     UserSignUpSerializer,
@@ -30,7 +30,7 @@ from .serializers import (
     JobSearcherSerializer,
     AdminLoginSerializer,
     ChangeStatusSerializer,
-    ApplicationSerializer,
+    ApplicationSerializer, ResumeSerializer,
 )
 from hired_go.settings import EMAIL_HOST_USER
 
@@ -221,7 +221,7 @@ class RecruiterLogoAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class JobApplyView(APIView):
+class JobApplyAPIView(APIView):
     parser_classes = [FileUploadParser]
     permission_classes = [IsAuthenticated]
 
@@ -243,15 +243,20 @@ class JobApplyView(APIView):
         applicant = JobSearcher.objects.get(user=request.user)
         vacancy = Vacancy.objects.get(id=pk)
 
-        if 'file' not in request.FILES:
-            return Response({'error': 'Please upload a resume.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not applicant.resumes.exists():
+            return Response({'error': 'Please create a resume first.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        resume = request.FILES['file']
+        selected_resume_id = request.data.get('resume_id')
+        selected_resume = applicant.resumes.filter(id=selected_resume_id).first()
+
+        if not selected_resume:
+            return Response({'error': 'Invalid resume ID.'}, status=status.HTTP_400_BAD_REQUEST)
+
         Application.objects.create(
             vacancy=vacancy,
             company=vacancy.company_name_id,
             applicant=applicant,
-            resume=resume,
+            resume=selected_resume,
             application_date=date.today()
         )
 
@@ -434,3 +439,108 @@ class RefuseCandidateAPIView(APIView):
         recipient_list = [applicant.user.email]
         send_mail(subject, message, from_email, recipient_list)
         return Response({'message': 'Application status updated successfully'}, status=status.HTTP_200_OK)
+
+
+class ResumeCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        applicant = JobSearcher.objects.get(user=request.user)
+
+        title = request.data.get('title', '')
+        contacts = request.data.get('contacts', '')
+        summary = request.data.get('summary', '')
+        skills = request.data.get('skills', '')
+        languages = request.data.get('languages', '')
+        experiences = request.data.get('experiences', [])
+        educations = request.data.get('educations', [])
+
+        # create the resume
+        resume = Resume.objects.create(
+            job_searcher=applicant,
+            title=title,
+            contacts=contacts,
+            summary=summary,
+            skills=skills,
+            languages=languages,
+        )
+
+        # create experiences
+        for experience_data in experiences:
+            position = experience_data.get("position")
+            company = experience_data.get("company")
+            period_start = experience_data.get("start_date")
+            period_end = experience_data.get("end_date")
+
+            Experience.objects.create(
+                resume=resume,
+                company=company,
+                position=position,
+                period_start=period_start,
+                period_end=period_end,
+            )
+
+        # create educations
+        for education in educations:
+            Education.objects.create(
+                resume=resume,
+                institution=education.get('institution', ''),
+                degree=education.get('degree', ''),
+                period_start=education.get('start_date', ''),
+                period_end=education.get('end_date', ''),
+            )
+
+        applicant.resume = resume
+        applicant.save()
+
+        return Response({'success': 'Resume created successfully.'}, status=status.HTTP_201_CREATED)
+
+
+class ChangeResumeAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, pk):
+        applicant = JobSearcher.objects.get(user=request.user)
+
+        try:
+            resume = Resume.objects.get(id=pk, job_searcher=applicant)
+        except Resume.DoesNotExist:
+            return Response({'error': 'Resume not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        applicant.resume = resume
+        applicant.save()
+
+        return Response({'success': 'Resume updated successfully.'})
+
+
+class ResumeListAPIView(ListAPIView):
+    serializer_class = ResumeSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return Resume.objects.filter(job_searcher=self.request.user.jobsearcher)
+
+
+class ResumeDetailAPIView(RetrieveAPIView):
+    serializer_class = ResumeSerializer
+    permission_classes = (IsAuthenticated,)
+    lookup_field = 'pk'
+
+    def get_queryset(self):
+        job_searcher = JobSearcher.objects.get(user=self.request.user)
+        return Resume.objects.filter(job_searcher=job_searcher)
+
+
+class ApplicantResumeAPIView(RetrieveAPIView):
+    serializer_class = ResumeSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        recruiter = Recruiter.objects.get(user=self.request.user)
+        application = Application.objects.get(id=self.kwargs['pk'], company=recruiter)
+        return Resume.objects.filter(job_searcher=application.applicant)
+
+    def get_object(self):
+        queryset = self.get_queryset()
+        obj = get_object_or_404(queryset, pk=self.kwargs['resume_pk'])
+        return obj
