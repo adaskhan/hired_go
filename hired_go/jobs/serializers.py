@@ -3,7 +3,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .backends import EmailOrUsernameAuthenticationBackend
-from .models import User, Recruiter, Vacancy, JobSearcher, Application
+from .models import User, Recruiter, Vacancy, JobSearcher, Application, Experience, Education, Resume
 
 
 class UserLoginSerializer(serializers.Serializer):
@@ -232,10 +232,46 @@ class AdminLoginSerializer(serializers.Serializer):
         return data
 
 
+class ExperienceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Experience
+        fields = ('company', 'position', 'period_start', 'period_end')
+
+
+class EducationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Education
+        fields = ('institution', 'degree', 'period_start', 'period_end')
+
+
+class ResumeSerializer(serializers.ModelSerializer):
+    experiences = ExperienceSerializer(many=True, read_only=True)
+    educations = EducationSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Resume
+        fields = '__all__'
+
+
+class JobSearcherResumeSerializer(serializers.ModelSerializer):
+    # title = serializers.CharField(source='resume.title')
+    # contacts = serializers.CharField(source='resume.contacts')
+    # summary = serializers.CharField(source='resume.summary')
+    # experiences = ExperienceSerializer(source='resume.experiences', many=True)
+    # educations = EducationSerializer(source='resume.educations', many=True)
+    # skills = serializers.CharField(source='resume.skills')
+    # languages = serializers.CharField(source='resume.languages')
+
+    class Meta:
+        model = JobSearcher
+        fields = ['id', 'phone', 'image', 'gender']
+
+
 class ApplicationSerializer(serializers.ModelSerializer):
     company = serializers.StringRelatedField()
+    applicant = JobSearcherResumeSerializer(read_only=True)
+    resume = ResumeSerializer()
 
     class Meta:
         model = Application
         fields = ['id', 'company', 'vacancy', 'applicant', 'resume', 'application_date']
-        read_only_fields = ['id', 'company', 'vacancy', 'applicant', 'application_date']
