@@ -34,9 +34,30 @@ class JobSearcher(models.Model):
     image = models.ImageField(upload_to="", null=True, blank=True)
     gender = models.CharField(max_length=10)
     type = models.CharField(max_length=15)
+    resume = models.ForeignKey(
+        to="Resume",
+        on_delete=models.CASCADE,
+        related_name='job_searcher_resume',
+        null=True,
+        blank=True,
+    )
 
     def __str__(self):
         return self.user.first_name
+
+
+class Resume(models.Model):
+    job_searcher = models.ForeignKey(
+        to=JobSearcher,
+        on_delete=models.CASCADE,
+        related_name='resumes',
+    )
+    title = models.CharField(max_length=200)
+    contacts = models.CharField(max_length=200)
+    summary = models.TextField(max_length=500)
+    skills = models.CharField(max_length=200)
+    languages = models.CharField(max_length=200)
+    created_date = models.DateField(auto_now_add=True)
 
 
 class Recruiter(models.Model):
@@ -110,8 +131,37 @@ class Application(models.Model):
         to=JobSearcher,
         on_delete=models.CASCADE
     )
-    resume = models.ImageField(upload_to="")
+    resume = models.ForeignKey(
+        to=Resume,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
     application_date = models.DateField()
 
     def __str__(self):
         return str(self.applicant)
+
+
+class Experience(models.Model):
+    resume = models.ForeignKey(
+        to=Resume,
+        on_delete=models.CASCADE,
+        related_name='experiences'
+    )
+    company = models.CharField(max_length=200, default="")
+    position = models.CharField(max_length=200)
+    period_start = models.DateField()
+    period_end = models.DateField()
+
+
+class Education(models.Model):
+    resume = models.ForeignKey(
+        to=Resume,
+        on_delete=models.CASCADE,
+        related_name='educations'
+    )
+    institution = models.CharField(max_length=200)
+    degree = models.CharField(max_length=200)
+    period_start = models.DateField()
+    period_end = models.DateField()
