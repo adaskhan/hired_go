@@ -33,20 +33,14 @@ class UserLoginSerializer(serializers.Serializer):
 
 class UserSignUpSerializer(serializers.ModelSerializer):
     username = serializers.CharField(write_only=True)
-    phone = serializers.CharField(write_only=True)
-    image = serializers.ImageField(write_only=True, required=False, allow_null=True)
-    gender = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
-        fields = ('id', 'email', 'username', 'first_name', 'last_name', 'password', 'phone', 'image', 'gender')
+        fields = ('id', 'email', 'username', 'first_name', 'last_name', 'password')
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
         username = validated_data.pop('username')
-        phone = validated_data.pop('phone')
-        image = validated_data.pop('image', None)
-        gender = validated_data.pop('gender')
         user = User.objects.create_user(
             username=username,
             **validated_data
@@ -54,9 +48,6 @@ class UserSignUpSerializer(serializers.ModelSerializer):
 
         JobSearcher.objects.create(
             user=user,
-            phone=phone,
-            image=image,
-            gender=gender,
             type="jobsearcher"  # or any other default values you want to set
         )
 
@@ -157,10 +148,27 @@ class ChangeStatusSerializer(serializers.ModelSerializer):
         fields = ('status',)
 
 
+class RecruiterCompanySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Recruiter
+        fields = ['user', 'company_name']
+
+
 class VacancySerializer(serializers.ModelSerializer):
+    company_name_id = RecruiterCompanySerializer(read_only=True)
+
     class Meta:
         model = Vacancy
         fields = '__all__'
+
+
+class ApplicationGetSerializer(serializers.ModelSerializer):
+    vacancy_title = serializers.CharField(source='vacancy.title', read_only=True)
+    company_name = serializers.CharField(source='company.company_name', read_only=True)
+
+    class Meta:
+        model = Application
+        fields = ('id', 'vacancy_title', 'company_name', 'application_date')
 
 
 class AddVacancySerializer(serializers.ModelSerializer):
@@ -254,17 +262,15 @@ class ResumeSerializer(serializers.ModelSerializer):
 
 
 class JobSearcherResumeSerializer(serializers.ModelSerializer):
-    # title = serializers.CharField(source='resume.title')
-    # contacts = serializers.CharField(source='resume.contacts')
-    # summary = serializers.CharField(source='resume.summary')
-    # experiences = ExperienceSerializer(source='resume.experiences', many=True)
-    # educations = EducationSerializer(source='resume.educations', many=True)
-    # skills = serializers.CharField(source='resume.skills')
-    # languages = serializers.CharField(source='resume.languages')
+    full_name = serializers.SerializerMethodField()
 
     class Meta:
         model = JobSearcher
-        fields = ['id', 'phone', 'image', 'gender']
+        fields = ['id', 'phone', 'image', 'gender', 'full_name']
+
+    def get_full_name(self, obj):
+        return f"{obj.user.first_name} {obj.user.last_name}"
+
 
 
 class ApplicationSerializer(serializers.ModelSerializer):

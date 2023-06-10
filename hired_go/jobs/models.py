@@ -30,9 +30,9 @@ class JobSearcher(models.Model):
         to=User,
         on_delete=models.CASCADE
     )
-    phone = models.CharField(max_length=20)
+    phone = models.CharField(max_length=20, null=True, blank=True)
     image = models.ImageField(upload_to="", null=True, blank=True)
-    gender = models.CharField(max_length=10)
+    gender = models.CharField(max_length=10, null=True, blank=True)
     type = models.CharField(max_length=15)
     resume = models.ForeignKey(
         to="Resume",

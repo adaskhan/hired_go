@@ -8,7 +8,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from rest_framework import generics, status
-from rest_framework.parsers import FileUploadParser
+from rest_framework.parsers import FileUploadParser, MultiPartParser, FormParser, JSONParser
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -30,7 +30,7 @@ from .serializers import (
     JobSearcherSerializer,
     AdminLoginSerializer,
     ChangeStatusSerializer,
-    ApplicationSerializer, ResumeSerializer,
+    ApplicationSerializer, ResumeSerializer, ApplicationGetSerializer,
 )
 from hired_go.settings import EMAIL_HOST_USER
 
@@ -48,9 +48,17 @@ class UserLoginAPIView(APIView):
             raise CustomValidationFailed(e.message)
         user = serializer.validated_data['user']
         refresh = RefreshToken.for_user(user)
+
+        job_searcher = JobSearcher.objects.filter(user=user).first()
+        resume_id = job_searcher.resume.id if job_searcher and job_searcher.resume else None
+
         return Response({
+            'user_id': user.id,
+            'name': f"{user.first_name} {user.last_name}",
             'refresh': str(refresh),
             'access': str(refresh.access_token),
+            'resume_id': resume_id,
+            'is_user': True if job_searcher else False
         })
 
 
@@ -58,6 +66,7 @@ class UserSignUpAPIView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSignUpSerializer
     permission_classes = (AllowAny,)
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def perform_create(self, serializer):
         user = serializer.save()
@@ -161,17 +170,17 @@ class RecruiterLoginAPIView(APIView):
         user = EmailOrUsernameAuthenticationBackend().authenticate(request=None, username=username, password=password)
 
         if user is not None:
-            try:
-                recruiter = Recruiter.objects.get(user=user)
-            except Recruiter.DoesNotExist:
-                return Response({"error": "Invalid login credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+            recruiter = Recruiter.objects.filter(user=user).first()
+            if recruiter:
+                if recruiter.status == "pending":
+                    return Response({"error": "Account not approved yet"}, status=status.HTTP_401_UNAUTHORIZED)
 
-            if recruiter.status == "pending":
-                return Response({"error": "Account not approved yet"}, status=status.HTTP_401_UNAUTHORIZED)
             refresh = RefreshToken.for_user(user)
             return Response({
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),
+                'is_recruiter': True if recruiter else False,
+                'name': f"{user.first_name} {user.last_name}"
             }, status=status.HTTP_200_OK)
         else:
             return Response({"error": "Invalid login credentials"}, status=status.HTTP_401_UNAUTHORIZED)
@@ -194,9 +203,12 @@ class AddVacancyAPIView(generics.CreateAPIView):
 
 
 class VacancyListAPIView(generics.ListAPIView):
-    queryset = Vacancy.objects.all()
     serializer_class = VacancySerializer
     permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        user = self.request.user
+        return Vacancy.objects.filter(company_name_id__user=user)
 
 
 class EditVacancyAPIView(generics.UpdateAPIView):
@@ -222,7 +234,6 @@ class RecruiterLogoAPIView(APIView):
 
 
 class JobApplyAPIView(APIView):
-    parser_classes = [FileUploadParser]
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
@@ -281,6 +292,19 @@ class JobApplyAPIView(APIView):
         return Response({'alert': alert}, status=status.HTTP_201_CREATED)
 
 
+class AppliedJobsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            applicant = JobSearcher.objects.get(user=request.user)
+            applications = Application.objects.filter(applicant=applicant)
+            serializer = ApplicationGetSerializer(applications, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except JobSearcher.DoesNotExist:
+            return Response({'error': 'No job searcher associated with the current user.'}, status=status.HTTP_404_NOT_FOUND)
+
+
 class AllApplicantsAPIView(ListAPIView):
     serializer_class = ApplicationSerializer
     permission_classes = (IsAuthenticated,)
@@ -288,6 +312,16 @@ class AllApplicantsAPIView(ListAPIView):
     def get_queryset(self):
         recruiter = Recruiter.objects.get(user=self.request.user)
         return Application.objects.filter(company=recruiter)
+
+
+class HasAppliedAPIView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, vacancy_id, applicant_id, format=None):
+        print(vacancy_id, applicant_id)
+        exists = Application.objects.filter(vacancy__id=vacancy_id, applicant__user__id=applicant_id).exists()
+        print(exists)
+        return Response({'hasApplied': exists})
 
 
 class VacancyApplicantsAPIView(ListAPIView):
@@ -323,6 +357,8 @@ class AdminLoginAPIView(generics.GenericAPIView):
             return Response({
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),
+                'is_admin': True,
+                'name': f"{user.first_name} {user.last_name}"
             }, status=status.HTTP_200_OK)
         raise CustomValidationFailed({"error": "User is not a superuser"})
 

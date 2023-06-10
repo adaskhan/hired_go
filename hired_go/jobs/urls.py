@@ -3,6 +3,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from . import views
 
+
 urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
@@ -19,6 +20,8 @@ urlpatterns = [
     path('api/create_resume/', views.ResumeCreateAPIView.as_view(), name='create_resume_api'),
     path('api/view_resume/<int:pk>/', views.ResumeDetailAPIView.as_view(), name='resume_detail_api'),
     path('api/change_resume/<int:pk>/', views.ChangeResumeAPIView.as_view(), name='change_resume_api'),
+    path('api/has_applied/<int:vacancy_id>/<int:applicant_id>/', views.HasAppliedAPIView.as_view(), name="has_applied_api"),
+    path('api/get_applications/', views.AppliedJobsAPIView.as_view(), name='applied_jobs'),
 
     # Recruiter
     path("api/recruiter_signup/", views.RecruiterSignUpAPIView().as_view(), name="company_signup_api"),

@@ -31,7 +31,9 @@ INSTALLED_APPS = [
 
     'jobs',
     'rest_framework',
-    'rest_framework.authtoken'
+    'rest_framework.authtoken',
+    
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
@@ -42,6 +44,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
 ]
 
 ROOT_URLCONF = 'hired_go.urls'
@@ -77,6 +81,8 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.FormParser',
+        'rest_framework.parsers.MultiPartParser',
     ],
     'EXCEPTION_HANDLER': 'hired_go.exceptions.custom_exception_handler',
 }
@@ -151,7 +157,7 @@ LOGIN_REDIRECT_URL = '/'
 
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=300),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ROTATE_REFRESH_TOKENS": False,
     "BLACKLIST_AFTER_ROTATION": False,
@@ -197,3 +203,12 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'hired.go.pro@gmail.com'
 EMAIL_HOST_PASSWORD = 'qclcyxdyhfciqcjk'
+
+# cors setting
+CORS_ALLOW_ALL_ORIGINS = True  # Если вы хотите разрешить все домены
+
+# или
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # URL вашего React-приложения
+]
