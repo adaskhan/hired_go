@@ -136,10 +136,15 @@ class RecruiterLoginSerializer(serializers.Serializer):
 
 class RecruiterSerializer(serializers.ModelSerializer):
     user = UserSerializer()
+    user_first_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Recruiter
         fields = '__all__'
+
+    def get_user_first_name(self, obj):
+        return f"{obj.user.first_name} {obj.user.last_name}"
+
 
 
 class ChangeStatusSerializer(serializers.ModelSerializer):
@@ -199,6 +204,22 @@ class JobSearcherSerializer(serializers.ModelSerializer):
     class Meta:
         model = JobSearcher
         fields = ('id', 'user', 'phone', 'image', 'gender', 'type')
+
+
+class JobSearcherGetSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField()
+    user_email = serializers.SerializerMethodField()
+    user_first_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = JobSearcher
+        fields = ('id', 'user', 'user_email', 'user_first_name', 'phone', 'image', 'gender', 'type')
+
+    def get_user_email(self, obj):
+        return obj.user.email
+
+    def get_user_first_name(self, obj):
+        return f"{obj.user.first_name} {obj.user.last_name}"
 
 
 class RecruiterLogoSerializer(serializers.ModelSerializer):

@@ -30,7 +30,7 @@ from .serializers import (
     JobSearcherSerializer,
     AdminLoginSerializer,
     ChangeStatusSerializer,
-    ApplicationSerializer, ResumeSerializer, ApplicationGetSerializer,
+    ApplicationSerializer, ResumeSerializer, ApplicationGetSerializer, JobSearcherGetSerializer,
 )
 from hired_go.settings import EMAIL_HOST_USER
 
@@ -366,7 +366,7 @@ class AdminLoginAPIView(generics.GenericAPIView):
 class ApplicantListAPIView(generics.ListAPIView):
     permission_classes = [IsAdminUser]
     queryset = JobSearcher.objects.all()
-    serializer_class = JobSearcherSerializer
+    serializer_class = JobSearcherGetSerializer
 
 
 class ApplicantDeleteAPIView(generics.DestroyAPIView):
