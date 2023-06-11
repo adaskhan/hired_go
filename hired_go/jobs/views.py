@@ -4,6 +4,7 @@ from django.contrib.auth.hashers import make_password
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView, CreateAPIView, RetrieveAPIView
+from rest_framework.serializers import ModelSerializer
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -14,7 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from django.contrib.auth import logout, authenticate
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, MultipleObjectsReturned
 
 from .backends import EmailOrUsernameAuthenticationBackend
 from .models import User, Recruiter, Vacancy, JobSearcher, Application, Resume, Experience, Education
@@ -31,6 +32,7 @@ from .serializers import (
     AdminLoginSerializer,
     ChangeStatusSerializer,
     ApplicationSerializer, ResumeSerializer, ApplicationGetSerializer, JobSearcherGetSerializer,
+    JobSearchersResumeSerializer,
 )
 from hired_go.settings import EMAIL_HOST_USER
 
@@ -587,3 +589,11 @@ class ApplicantResumeAPIView(RetrieveAPIView):
         queryset = self.get_queryset()
         obj = get_object_or_404(queryset, pk=self.kwargs['resume_pk'])
         return obj
+
+
+class JobSearcherResumesAPIView(APIView):
+    def get(self, request, job_searcher_id):
+        job_searcher = get_object_or_404(JobSearcher, user_id=job_searcher_id)
+        resumes = job_searcher.resumes.all()
+        serializer = JobSearchersResumeSerializer(resumes, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

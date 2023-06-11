@@ -61,6 +61,8 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class RecruiterSignUpSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(read_only=True)
+
     first_name = serializers.CharField(max_length=30)
     last_name = serializers.CharField(max_length=150)
     username = serializers.CharField()
@@ -73,7 +75,7 @@ class RecruiterSignUpSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Recruiter
-        fields = ['username', 'email', 'first_name', 'last_name', 'password', 'password2', 'phone', 'gender', 'company_name']
+        fields = ['username', 'email', 'first_name', 'last_name', 'password', 'password2', 'phone', 'gender', 'company_name', 'id']
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -105,7 +107,8 @@ class RecruiterSignUpSerializer(serializers.ModelSerializer):
             gender=validated_data.get('gender'),
             company_name=validated_data.get('company_name')
         )
-
+        recruiter.id = user.id
+        recruiter.user_id = user.id
         return recruiter
 
 
@@ -292,7 +295,6 @@ class JobSearcherResumeSerializer(serializers.ModelSerializer):
         return f"{obj.user.first_name} {obj.user.last_name}"
 
 
-
 class ApplicationSerializer(serializers.ModelSerializer):
     company = serializers.StringRelatedField()
     applicant = JobSearcherResumeSerializer(read_only=True)
@@ -301,3 +303,24 @@ class ApplicationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Application
         fields = ['id', 'company', 'vacancy', 'applicant', 'resume', 'application_date']
+
+
+class JobSearcherExperienceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Experience
+        fields = ['company', 'position', 'period_start', 'period_end']
+
+
+class JobSearcherEducationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Education
+        fields = ['institution', 'degree', 'period_start', 'period_end']
+
+
+class JobSearchersResumeSerializer(serializers.ModelSerializer):
+    experiences = ExperienceSerializer(many=True, read_only=True)
+    educations = EducationSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Resume
+        fields = ['title', 'contacts', 'summary', 'skills', 'languages', 'created_date', 'experiences', 'educations']
