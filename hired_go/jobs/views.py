@@ -592,8 +592,13 @@ class ApplicantResumeAPIView(RetrieveAPIView):
 
 
 class JobSearcherResumesAPIView(APIView):
-    def get(self, request, job_searcher_id):
-        job_searcher = get_object_or_404(JobSearcher, user_id=job_searcher_id)
-        resumes = job_searcher.resumes.all()
-        serializer = JobSearchersResumeSerializer(resumes, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            job_searcher = JobSearcher.objects.get(user=request.user)
+            resumes = job_searcher.resumes.all()
+            serializer = JobSearchersResumeSerializer(resumes, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except JobSearcher.DoesNotExist:
+            return Response({'error': 'No job searcher associated with the current user.'}, status=status.HTTP_404_NOT_FOUND)

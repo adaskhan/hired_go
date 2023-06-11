@@ -22,7 +22,7 @@ urlpatterns = [
     path('api/change_resume/<int:pk>/', views.ChangeResumeAPIView.as_view(), name='change_resume_api'),
     path('api/has_applied/<int:vacancy_id>/<int:applicant_id>/', views.HasAppliedAPIView.as_view(), name="has_applied_api"),
     path('api/get_applications/', views.AppliedJobsAPIView.as_view(), name='applied_jobs'),
-    path('api/job_searcher/<int:job_searcher_id>/resumes/', views.JobSearcherResumesAPIView.as_view(), name='job_searcher_resumes'),
+    path('api/get_resumes/', views.JobSearcherResumesAPIView.as_view(), name='job_searcher_resumes'),
 
 
     # Recruiter
