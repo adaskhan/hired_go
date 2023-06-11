@@ -180,7 +180,8 @@ class RecruiterLoginAPIView(APIView):
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),
                 'is_recruiter': True if recruiter else False,
-                'name': f"{user.first_name} {user.last_name}"
+                'name': f"{user.first_name} {user.last_name}",
+                'id': user.id
             }, status=status.HTTP_200_OK)
         else:
             return Response({"error": "Invalid login credentials"}, status=status.HTTP_401_UNAUTHORIZED)
@@ -373,6 +374,12 @@ class ApplicantDeleteAPIView(generics.DestroyAPIView):
     permission_classes = [IsAdminUser]
     queryset = JobSearcher.objects.all()
     serializer_class = JobSearcherSerializer
+
+
+class VacancyDeleteAPIView(generics.DestroyAPIView):
+    permission_classes = [IsAdminUser]
+    queryset = Vacancy.objects.all()
+    serializer_class = VacancySerializer
 
 
 class PendingCompaniesListAPIView(generics.ListAPIView):

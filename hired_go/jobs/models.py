@@ -101,7 +101,7 @@ class Vacancy(models.Model):
     )
     salary = models.FloatField()
     company_logo = models.ImageField(upload_to="", null=True)
-    description = models.TextField(max_length=400)
+    description = models.TextField()
     experience = models.CharField(max_length=100)
     location = models.CharField(max_length=100)
     skills = models.CharField(max_length=200)

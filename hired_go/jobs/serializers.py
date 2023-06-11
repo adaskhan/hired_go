@@ -146,7 +146,6 @@ class RecruiterSerializer(serializers.ModelSerializer):
         return f"{obj.user.first_name} {obj.user.last_name}"
 
 
-
 class ChangeStatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = Recruiter
