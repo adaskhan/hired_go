@@ -498,7 +498,7 @@ class ResumeCreateAPIView(APIView):
         skills = request.data.get('skills', '')
         languages = request.data.get('languages', '')
         experiences = request.data.get('experiences', [])
-        educations = request.data.get('educations', [])
+        educations = request.data.get('education', [])
 
         # create the resume
         resume = Resume.objects.create(
