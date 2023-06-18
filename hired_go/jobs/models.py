@@ -138,6 +138,7 @@ class Application(models.Model):
         blank=True
     )
     application_date = models.DateField()
+    application_status = models.CharField(max_length=30, default="pending")
 
     def __str__(self):
         return str(self.applicant)

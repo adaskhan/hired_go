@@ -463,6 +463,10 @@ class InviteCandidateAPIView(APIView):
         from_email = EMAIL_HOST_USER
         recipient_list = [applicant.user.email]
         send_mail(subject, message, from_email, recipient_list)
+
+        application.application_status = 'invited'
+        application.save()
+
         return Response({'message': 'Invitation sent successfully'}, status=status.HTTP_200_OK)
 
 
@@ -483,6 +487,10 @@ class RefuseCandidateAPIView(APIView):
         from_email = EMAIL_HOST_USER
         recipient_list = [applicant.user.email]
         send_mail(subject, message, from_email, recipient_list)
+
+        application.application_status = 'refused'
+        application.save()
+
         return Response({'message': 'Application status updated successfully'}, status=status.HTTP_200_OK)
 
 

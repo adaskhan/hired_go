@@ -302,7 +302,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Application
-        fields = ['id', 'company', 'vacancy', 'applicant', 'resume', 'application_date']
+        fields = ['id', 'company', 'vacancy', 'applicant', 'resume', 'application_date', 'application_status']
 
 
 class JobSearcherExperienceSerializer(serializers.ModelSerializer):
