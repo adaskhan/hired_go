@@ -175,7 +175,7 @@ class ApplicationGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Application
-        fields = ('id', 'vacancy_title', 'company_name', 'application_date')
+        fields = ('id', 'vacancy_title', 'company_name', 'application_date', 'application_status')
 
 
 class AddVacancySerializer(serializers.ModelSerializer):
