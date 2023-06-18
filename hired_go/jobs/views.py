@@ -10,7 +10,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from rest_framework import generics, status
 from rest_framework.parsers import FileUploadParser, MultiPartParser, FormParser, JSONParser
-from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -568,12 +568,18 @@ class ResumeListAPIView(ListAPIView):
 
 class ResumeDetailAPIView(RetrieveAPIView):
     serializer_class = ResumeSerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticatedOrReadOnly,)
     lookup_field = 'pk'
 
     def get_queryset(self):
-        job_searcher = JobSearcher.objects.get(user=self.request.user)
-        return Resume.objects.filter(job_searcher=job_searcher)
+        user = self.request.user
+        if user.is_authenticated:
+            if user:
+                return Resume.objects.all()
+            else:
+                job_searcher = JobSearcher.objects.get(user=user)
+                return Resume.objects.filter(job_searcher=job_searcher)
+        return Resume.objects.none()
 
 
 class ApplicantResumeAPIView(RetrieveAPIView):
